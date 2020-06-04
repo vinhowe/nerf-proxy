@@ -21,15 +21,20 @@ func check(e error) {
 }
 
 func main() {
-	_, err := os.Stat(BlacklistFileName)
+	addr := flag.String("addr", ":8080", "proxy listen address")
+	filepath := flag.String("p", BlacklistFileName, "blacklist file path")
+
+	flag.Parse()
+
+	_, err := os.Stat(*filepath)
 	if os.IsNotExist(err) {
-		fmt.Printf("%s does not exist, creating it\n", BlacklistFileName)
-		_, err = os.Create(BlacklistFileName)
+		fmt.Printf("%s does not exist, creating it\n", *filepath)
+		_, err = os.Create(*filepath)
 		check(err)
 		return
 	}
 
-	data, err := ioutil.ReadFile(BlacklistFileName)
+	data, err := ioutil.ReadFile(*filepath)
 	check(err)
 
 	blockList := strings.Split(string(data), "\n")
@@ -37,13 +42,13 @@ func main() {
 	blockList = blockList[0:len(blockList)-1]
 
 	if len(blockList) == 0 {
-		fmt.Printf("%s is empty, exiting\n", BlacklistFileName)
+		fmt.Printf("%s is empty, exiting\n", *filepath)
 		return
 	}
 
 	blockListFmt := strings.ReplaceAll(strings.Join(blockList, "|"), ".", "\\.")
 	blockListRegex := regexp.MustCompile(fmt.Sprintf(".*%s/*", blockListFmt))
-	fmt.Printf("Loaded blacklist (%s) with %d items\n", BlacklistFileName, len(blockList))
+	fmt.Printf("Loaded blacklist (%s) with %d items\n", *filepath, len(blockList))
 
 	proxy := goproxy.NewProxyHttpServer()
 	proxy.Verbose = false
@@ -51,8 +56,6 @@ func main() {
 	proxy.OnRequest(goproxy.ReqHostMatches(blockListRegex)).
 		HandleConnect(goproxy.AlwaysReject)
 
-	addr := flag.String("addr", ":8080", "proxy listen address")
-	flag.Parse()
 
 	fmt.Printf("Starting proxy on %s\n", *addr)
 
